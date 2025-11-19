@@ -1,42 +1,72 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, LearningPath } from '../types';
+import { User, LearningPath, Course } from '../types';
+import { api } from '../services/api';
 import { MOCK_PATHS, getLeaderboardData } from '../mockData';
 import MountainPath from './MountainPath';
 import LeaderboardChart from './LeaderboardChart';
-import { ChevronDown, Book, Trophy, Clock, BarChart3, PlayCircle, CheckCircle, Lock } from 'lucide-react';
+import { ChevronDown, Clock, Trophy, PlayCircle, CheckCircle, Lock } from 'lucide-react';
 
 interface Props {
   user: User;
 }
 
-const UserDashboard: React.FC<Props> = ({ user }) => {
-  // If user has enrolled paths, use the first one, otherwise default
-  const initialPathId = user.enrolledPaths.length > 0 ? user.enrolledPaths[0] : MOCK_PATHS[0].id;
-  const [selectedPathId, setSelectedPathId] = useState<number>(initialPathId);
-  const [currentPath, setCurrentPath] = useState<LearningPath | undefined>(undefined);
+const UserDashboard: React.FC<Props> = ({ user: initialUser }) => {
+  // State
+  const [user, setUser] = useState<User>(initialUser);
+  const [selectedPathId, setSelectedPathId] = useState<number>(
+    initialUser.enrolledPaths.length > 0 ? initialUser.enrolledPaths[0] : MOCK_PATHS[0].id
+  );
+  const [loading, setLoading] = useState(false);
+  const [currentPathTitle, setCurrentPathTitle] = useState<string>("");
+  const [courses, setCourses] = useState<Course[]>([]);
 
+  // Load User Details when Path Changes
   useEffect(() => {
-    const path = MOCK_PATHS.find(p => p.id === selectedPathId);
-    setCurrentPath(path);
-  }, [selectedPathId]);
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            // Fetch full user details + course progress for this path
+            const userDetails = await api.getUserDetails(user.email, selectedPathId);
+            setUser(userDetails);
+            
+            if (userDetails.currentPathCourses) {
+                setCourses(userDetails.currentPathCourses);
+            } else {
+                // Fallback for mock title/courses if API is down
+                const fallbackPath = MOCK_PATHS.find(p => p.id === selectedPathId);
+                if (fallbackPath) {
+                    setCourses(fallbackPath.courses);
+                    setCurrentPathTitle(fallbackPath.title);
+                }
+            }
 
-  if (!currentPath) return <div className="p-10 text-center">Cargando ruta de aprendizaje...</div>;
+            // If we fetched real data, try to find title in MOCK for now or from API if we extended it
+            const pathRef = MOCK_PATHS.find(p => p.id === selectedPathId);
+            if (pathRef) setCurrentPathTitle(pathRef.title);
 
+        } catch (err) {
+            console.error(err);
+        }
+        setLoading(false);
+    };
+    loadData();
+  }, [selectedPathId, user.email]);
+
+  // Mock Leaderboard (since API doesn't return full leaderboard in single call yet)
   const leaderboardData = getLeaderboardData(selectedPathId).map(entry => ({
     ...entry,
     isCurrentUser: entry.email === user.email
   }));
-  
-  // Calculate current stats for this specific path context
-  // In a real app, these stats would come from the backend for the specific path + user combo.
-  // Here we use the user's global mock stats, but adjusted for demo purposes.
+
   const pathStats = {
     progress: user.stats.totalProgress,
-    completed: currentPath.courses.filter(c => c.isCompleted).length,
-    inProgress: currentPath.courses.filter(c => !c.isCompleted && c.progress > 0).length,
+    completed: user.stats.coursesCompleted,
+    inProgress: user.stats.coursesInProgress,
     lastActivity: user.stats.lastActivity
   };
+
+  if (loading && courses.length === 0) return <div className="p-20 text-center">Cargando datos...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -62,14 +92,14 @@ const UserDashboard: React.FC<Props> = ({ user }) => {
                 >
                     {user.enrolledPaths.map(pathId => {
                         const p = MOCK_PATHS.find(mp => mp.id === pathId);
-                        return <option key={pathId} value={pathId}>{p?.title}</option>
+                        return <option key={pathId} value={pathId}>{p?.title || `Vía #${pathId}`}</option>
                     })}
                 </select>
                 <ChevronDown className="absolute right-4 top-3.5 h-5 w-5 text-gray-400 pointer-events-none group-hover:text-purple-600 transition-colors" />
             </div>
         </div>
         
-        <div className="hidden md:block w-10"></div> {/* Spacer */}
+        <div className="hidden md:block w-10"></div>
       </header>
 
       <main className="max-w-7xl mx-auto p-6 space-y-8">
@@ -77,8 +107,8 @@ const UserDashboard: React.FC<Props> = ({ user }) => {
         {/* Path Title */}
         <div className="flex justify-between items-end">
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">{currentPath.title}</h1>
-                <p className="text-gray-500 mt-1">{currentPath.description || "Ruta de aprendizaje asignada"}</p>
+                <h1 className="text-2xl font-bold text-gray-900">{currentPathTitle || "Cargando..."}</h1>
+                <p className="text-gray-500 mt-1">Sigue tu progreso y alcanza la meta.</p>
             </div>
             <a href="#" className="text-brand-purple font-medium hover:underline hidden md:block text-sm border border-brand-purple px-4 py-2 rounded-full hover:bg-brand-light transition-colors">
                 Ir a la Vía de aprendizaje
@@ -101,10 +131,10 @@ const UserDashboard: React.FC<Props> = ({ user }) => {
             <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-xs text-gray-500 font-bold uppercase tracking-wider">Última actividad</h3>
                 <div className="mt-2">
-                    <span className="text-2xl font-semibold text-gray-800">{pathStats.lastActivity}</span>
+                    <span className="text-2xl font-semibold text-gray-800">{pathStats.lastActivity?.split('T')[0]}</span>
                 </div>
                 <div className="mt-3 text-xs text-gray-400 flex items-center gap-1">
-                    <Clock size={12} /> Actualizado hoy
+                    <Clock size={12} /> 
                 </div>
             </div>
 
@@ -112,7 +142,7 @@ const UserDashboard: React.FC<Props> = ({ user }) => {
                 <h3 className="text-xs text-gray-500 font-bold uppercase tracking-wider">Cursos completados</h3>
                 <div className="mt-2">
                     <span className="text-3xl font-bold text-gray-900">{pathStats.completed}</span>
-                    <span className="text-gray-400 text-sm ml-1">/ {currentPath.courses.length}</span>
+                    <span className="text-gray-400 text-sm ml-1">/ {courses.length}</span>
                 </div>
             </div>
 
@@ -124,19 +154,19 @@ const UserDashboard: React.FC<Props> = ({ user }) => {
             </div>
         </div>
 
-        {/* Content Split: Course List & Mountain */}
+        {/* Content Split */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             {/* Left Column: Course List */}
             <div className="lg:col-span-2 space-y-6">
                 {/* Group by Category */}
-                {Array.from(new Set(currentPath.courses.map(c => c.category))).map(category => (
+                {Array.from(new Set(courses.map(c => c.category))).map(category => (
                     <div key={category} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
                             <h3 className="font-bold text-gray-800">{category}</h3>
                         </div>
                         <div className="divide-y divide-gray-100">
-                            {currentPath.courses.filter(c => c.category === category).map(course => (
+                            {courses.filter(c => c.category === category).map(course => (
                                 <div key={course.id} className="p-5 hover:bg-gray-50 transition-colors flex items-start gap-4">
                                     <div className="mt-1">
                                         {course.isCompleted ? (
@@ -165,7 +195,7 @@ const UserDashboard: React.FC<Props> = ({ user }) => {
                     </div>
                 ))}
 
-                {/* Gamification / Leaderboard Section - Placed below courses on left side or full width */}
+                {/* Leaderboard */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center gap-2 mb-6">
                         <Trophy className="text-yellow-500" />
@@ -178,13 +208,9 @@ const UserDashboard: React.FC<Props> = ({ user }) => {
             {/* Right Column: Mountain Visual */}
             <div className="lg:col-span-1">
                 <div className="sticky top-24">
-                    <MountainPath courses={currentPath.courses} />
-                    <div className="mt-4 text-center text-sm text-gray-500 italic">
-                        ¡Sigue avanzando para alcanzar la cima!
-                    </div>
+                    <MountainPath courses={courses} />
                 </div>
             </div>
-
         </div>
       </main>
     </div>

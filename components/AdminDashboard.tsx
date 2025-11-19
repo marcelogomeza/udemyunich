@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
-import { MOCK_PATHS, MOCK_USERS } from '../mockData';
-import { User } from '../types';
-import { Search, Copy, ExternalLink, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
+import { MOCK_PATHS } from '../mockData'; // Fallback for initial list
+import { Search, Copy, ExternalLink, ChevronDown, RefreshCw } from 'lucide-react';
 
 interface Props {
   onSelectUser: (email: string) => void;
@@ -10,13 +10,29 @@ interface Props {
 
 const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
   const [selectedPathId, setSelectedPathId] = useState<number>(MOCK_PATHS[0].id);
-  const selectedPath = MOCK_PATHS.find(p => p.id === selectedPathId);
-  
-  // Filter users enrolled in this path
-  const users = MOCK_USERS.filter(u => u.enrolledPaths.includes(selectedPathId));
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [paths, setPaths] = useState(MOCK_PATHS);
+
+  useEffect(() => {
+    const loadPaths = async () => {
+        const data = await api.getPaths();
+        if(data.length > 0) setPaths(data);
+    };
+    loadPaths();
+  }, []);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+        setLoading(true);
+        const data = await api.getPathUsers(selectedPathId);
+        setUsers(data);
+        setLoading(false);
+    };
+    loadUsers();
+  }, [selectedPathId]);
 
   const handleCopyUrl = async (email: string) => {
-    // Construct URL explicitly for the /unich/ subdirectory
     const baseUrl = window.location.origin + "/unich/";
     const url = `${baseUrl}?view=user&email=${email}`;
     
@@ -25,26 +41,18 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
           await navigator.clipboard.writeText(url);
           alert(`URL copiada: ${url}`);
       } else {
-          // Fallback for non-secure contexts or older browsers
           const textArea = document.createElement("textarea");
           textArea.value = url;
           textArea.style.position = "fixed";
           textArea.style.left = "-9999px";
-          textArea.style.top = "0";
           document.body.appendChild(textArea);
           textArea.focus();
           textArea.select();
-          try {
-              document.execCommand('copy');
-              alert(`URL copiada: ${url}`);
-          } catch (err) {
-              console.error('Fallback copy failed', err);
-              alert(`No se pudo copiar automáticamente. URL: ${url}`);
-          }
+          document.execCommand('copy');
           document.body.removeChild(textArea);
+          alert(`URL copiada: ${url}`);
       }
     } catch (err) {
-      console.error('Failed to copy: ', err);
       alert(`Error al copiar. URL: ${url}`);
     }
   };
@@ -67,7 +75,7 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
                 value={selectedPathId}
                 onChange={(e) => setSelectedPathId(Number(e.target.value))}
              >
-                {MOCK_PATHS.map(p => (
+                {paths.map(p => (
                     <option key={p.id} value={p.id}>{p.title}</option>
                 ))}
              </select>
@@ -75,16 +83,19 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
            </div>
         </div>
         
-        <button className="bg-brand-purple text-white px-6 py-3 rounded-lg shadow hover:bg-brand-dark transition-colors font-medium">
-            Cargar participantes
+        <button 
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2 bg-brand-purple text-white px-6 py-3 rounded-lg shadow hover:bg-brand-dark transition-colors font-medium"
+        >
+            <RefreshCw size={18} /> Sincronizar
         </button>
       </header>
 
       <main className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Table Section */}
-        <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[400px]">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                <h2 className="text-lg font-bold text-gray-800">Participantes de la vía #{selectedPathId}</h2>
+                <h2 className="text-lg font-bold text-gray-800">Participantes</h2>
                 <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium">
                     {users.length} participantes
                 </span>
@@ -103,7 +114,9 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-sm">
-                        {users.map((user) => (
+                        {loading ? (
+                            <tr><td colSpan={6} className="p-8 text-center">Cargando datos...</td></tr>
+                        ) : users.map((user) => (
                             <tr key={user.email} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4">
                                     <div className="font-semibold text-gray-900">{user.name}</div>
@@ -111,44 +124,38 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
                                 </td>
                                 <td className="p-4 w-1/5">
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="font-bold">{user.stats.totalProgress}%</span>
+                                        <span className="font-bold">{Math.round(user.stats?.totalProgress || user.totalProgress || 0)}%</span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2">
                                         <div 
                                             className="h-2 rounded-full" 
                                             style={{ 
-                                                width: `${user.stats.totalProgress}%`,
-                                                background: `linear-gradient(90deg, ${
-                                                    user.stats.totalProgress < 30 ? '#ef4444' : 
-                                                    user.stats.totalProgress < 70 ? '#eab308' : 
-                                                    '#84cc16'
-                                                })`
+                                                width: `${Math.round(user.stats?.totalProgress || user.totalProgress || 0)}%`,
+                                                background: `linear-gradient(90deg, #ef4444, #eab308, #84cc16)`
                                             }}
                                         ></div>
                                     </div>
                                 </td>
                                 <td className="p-4 text-gray-600 font-medium">
-                                    {user.stats.lastActivity}
+                                    {user.stats?.lastActivity || user.lastActivity || '-'}
                                 </td>
                                 <td className="p-4 text-center font-bold text-gray-800">
-                                    {user.stats.coursesCompleted}
+                                    {user.stats?.coursesCompleted || user.coursesCompleted || 0}
                                 </td>
                                 <td className="p-4 text-center font-bold text-gray-800">
-                                    {user.stats.coursesInProgress}
+                                    {user.stats?.coursesInProgress || user.coursesInProgress || 0}
                                 </td>
                                 <td className="p-4">
                                     <div className="flex justify-center gap-2">
                                         <button 
                                             onClick={() => handleCopyUrl(user.email)}
                                             className="flex items-center gap-1 px-3 py-1.5 border border-brand-purple text-brand-purple rounded-md hover:bg-brand-light text-xs font-medium transition-colors"
-                                            title="Copiar enlace directo"
                                         >
-                                            <Copy size={14} /> Copiar URL
+                                            <Copy size={14} />
                                         </button>
                                         <button 
                                             onClick={() => onSelectUser(user.email)}
                                             className="p-1.5 text-gray-400 hover:text-gray-600"
-                                            title="Ver como usuario"
                                         >
                                             <ExternalLink size={16} />
                                         </button>
@@ -156,45 +163,26 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
                                 </td>
                             </tr>
                         ))}
-                        {users.length === 0 && (
-                            <tr>
-                                <td colSpan={6} className="p-8 text-center text-gray-500">
-                                    No hay usuarios inscritos en esta ruta.
-                                </td>
-                            </tr>
+                        {!loading && users.length === 0 && (
+                            <tr><td colSpan={6} className="p-8 text-center text-gray-500">No hay usuarios.</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
         </div>
 
-        {/* Help Sidebar */}
+        {/* Sidebar Help */}
         <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-fit">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Ayuda</h3>
-            <p className="text-gray-600 text-sm leading-relaxed mb-4">
-                Selecciona una vía para listar los participantes.
-            </p>
-            <p className="text-gray-600 text-sm leading-relaxed mb-4">
-                Usa <strong>"Copiar URL"</strong> para compartir el enlace directo al panel del alumno.
-            </p>
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <h4 className="text-blue-800 font-semibold text-sm mb-2">API Status</h4>
-                <div className="flex items-center gap-2 text-xs text-blue-600">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    Conectado a Udemy
-                </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Estado del Sistema</h3>
+            <div className="bg-green-50 p-4 rounded-lg border border-green-100 mb-4">
+                <h4 className="text-green-800 font-semibold text-sm mb-1">Sincronización</h4>
+                <p className="text-xs text-green-700">
+                    La conexión con Udemy Business está configurada. Ejecute <code>sync.php</code> para actualizar datos.
+                </p>
             </div>
+            <p className="text-xs text-gray-400">Cuenta: 403457 (unich)</p>
         </div>
       </main>
-      
-      <footer className="mt-12 pt-6 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
-        <p>&copy; 2025 CognosOnline · Ascensus RRHH</p>
-        <div className="flex items-center gap-2 mt-2 md:mt-0">
-            <span>Estrategias</span>
-            <span className="text-red-500">♥</span>
-            <span>para motivar el aprendizaje</span>
-        </div>
-      </footer>
     </div>
   );
 };
