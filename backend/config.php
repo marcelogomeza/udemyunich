@@ -13,8 +13,8 @@ date_default_timezone_set('America/Mexico_City');
  */
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'ascensus_db');
-define('DB_USER', 'TU_USUARIO_DB');
-define('DB_PASS', 'TU_PASSWORD_DB');
+define('DB_USER', 'root');
+define('DB_PASS', 'rpdBMwwHcUxllKzzNZNOfOMYYvaFoyQI');
 define('DB_CHARSET', 'utf8mb4');
 
 /**
@@ -27,8 +27,8 @@ define('UDEMY_SUBDOMAIN', 'unich');  // nombre de cuenta/subdominio
 define('UDEMY_ORG_ID', 403457);      // ID de cuenta/organización
 
 // Pega aquí TUS credenciales reales
-define('UDEMY_CLIENT_ID',    'TU_CLIENT_ID_AQUI');
-define('UDEMY_CLIENT_SECRET','TU_CLIENT_SECRET_AQUI');
+define('UDEMY_CLIENT_ID',    'FW9dc6eSqr5ilPhcnyFTiB6sIcgjF479ZPdI6t2r');
+define('UDEMY_CLIENT_SECRET','D5yMYzQsDwmIocv2F0eyRgPIiVOrfsLF74e9AExW573VY8zYnI0GSMNZL5ntYNsduu7pCVYA5DDch80HjXecreynvZWgW3oIfO4bcNBO3rfyzm5CE0O8sK9EKjGHFNZW');
 
 /**
  * Conexión PDO compartida
@@ -112,3 +112,4 @@ function json_response($data, int $status = 200): void
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
+
