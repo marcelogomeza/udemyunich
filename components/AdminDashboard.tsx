@@ -177,7 +177,7 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
             <div className="bg-green-50 p-4 rounded-lg border border-green-100 mb-4">
                 <h4 className="text-green-800 font-semibold text-sm mb-1">Sincronización</h4>
                 <p className="text-xs text-green-700">
-                    La conexión con Udemy Business está configurada. Ejecute <code>sync.php</code> para actualizar datos.
+                    La conexión con Udemy Business está configurada. Ejecute <code>sync.php</code> para <A href="backend/sync.php">actualizar datos</A>.
                 </p>
             </div>
             <p className="text-xs text-gray-400">Cuenta: 403457 (unich)</p>
