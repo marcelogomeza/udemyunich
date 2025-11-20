@@ -1,6 +1,5 @@
 <?php
 // backend/api.php
-
 declare(strict_types=1);
 
 require __DIR__ . '/config.php';
@@ -12,8 +11,7 @@ try {
     switch ($action) {
 
         case 'get_paths':
-            $paths = api_get_paths($pdo);
-            json_response($paths);
+            json_response(api_get_paths($pdo));
             break;
 
         case 'get_path_users':
@@ -21,19 +19,16 @@ try {
             if ($pathId <= 0) {
                 json_response(['error' => 'Parámetro path_id es obligatorio'], 400);
             }
-            $users = api_get_path_users($pdo, $pathId);
-            json_response($users);
+            json_response(api_get_path_users($pdo, $pathId));
             break;
 
-        case 'get_user_stats':
+        case 'get_user_details':
             $email  = $_GET['email']   ?? '';
             $pathId = isset($_GET['path_id']) ? (int) $_GET['path_id'] : 0;
-
             if (!$email) {
                 json_response(['error' => 'Parámetro email es obligatorio'], 400);
             }
-            $data = api_get_user_stats($pdo, $email, $pathId);
-            json_response($data);
+            json_response(api_get_user_details($pdo, $email, $pathId));
             break;
 
         default:
@@ -46,8 +41,8 @@ try {
 }
 
 /**
- * Devuelve listado de paths para el selector del Admin.
- * Estructura compatible con interfaz LearningPath del front.
+ * Devuelve listado de paths
+ * Compatible con interfaz LearningPath del front.
  */
 function api_get_paths(PDO $pdo): array
 {
@@ -63,8 +58,7 @@ function api_get_paths(PDO $pdo): array
             'id'           => (int) $row['id'],
             'title'        => $row['title'],
             'totalCourses' => (int) $row['total_courses'],
-            // De momento no enviamos cursos reales; el front no los usa aquí
-            'courses'      => [],
+            'courses'      => [],        // por ahora vacío; el front usa MOCK para lista de cursos
             'description'  => $row['description'],
         ];
     }
@@ -73,11 +67,8 @@ function api_get_paths(PDO $pdo): array
 }
 
 /**
- * Devuelve usuarios de un path con sus stats agregadas.
- * La respuesta se ajusta a lo que espera AdminDashboard:
- *  - user.name
- *  - user.email
- *  - user.stats.totalProgress / lastActivity / coursesCompleted / coursesInProgress
+ * Devuelve usuarios de un path con sus stats agregadas
+ * Estructura: { email, name, stats: { totalProgress, lastActivity, coursesCompleted, coursesInProgress } }
  */
 function api_get_path_users(PDO $pdo, int $pathId): array
 {
@@ -118,44 +109,37 @@ function api_get_path_users(PDO $pdo, int $pathId): array
 }
 
 /**
- * Devuelve la ficha de un usuario + stats para un path concreto.
- * Estructura compatible con getUserDetails() del front.
- *
- * Por ahora no devolvemos path_courses (detalle por curso),
- * así que el front usará los MOCK_PATHS como fallback para la lista
- * de cursos, pero las estadísticas serán reales.
+ * Devuelve ficha de usuario + stats para un path concreto.
+ * Compatible con lo que espera api.getUserDetails() en el frontend.
  */
-function api_get_user_stats(PDO $pdo, string $email, int $pathId = 0): array
+function api_get_user_details(PDO $pdo, string $email, int $pathId = 0): array
 {
-    // Datos básicos del usuario
+    // Usuario
     $stmt = $pdo->prepare("SELECT email, name, last_activity FROM users WHERE email = :email");
     $stmt->execute([':email' => $email]);
     $user = $stmt->fetch();
 
     if (!$user) {
-        // Podrías devolver 404, pero para el front es más cómodo así:
         return [
-            'email'       => $email,
-            'name'        => $email,
-            'enrolledPaths' => [],
-            'stats'       => [
+            'email'        => $email,
+            'name'         => $email,
+            'enrolledPaths'=> [],
+            'stats'        => [
                 'totalProgress'    => 0,
                 'lastActivity'     => '-',
                 'coursesCompleted' => 0,
                 'coursesInProgress'=> 0,
             ],
-            'path_courses' => [],
+            // currentPathCourses lo omitimos → front cae en MOCK_PATHS
         ];
     }
 
-    // Paths donde está inscrito el usuario
+    // Paths del usuario
     $stmt = $pdo->prepare("SELECT path_id FROM path_users WHERE user_email = :email");
     $stmt->execute([':email' => $email]);
-    $paths = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $pathIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 
-    $enrolledPaths = array_map('intval', $paths);
-
-    // Stats del path seleccionado (si se proporcionó pathId)
+    // Stats del path seleccionado
     $stats = [
         'totalProgress'    => 0,
         'lastActivity'     => $user['last_activity'] ? date('Y-m-d', strtotime($user['last_activity'])) : '-',
@@ -179,8 +163,8 @@ function api_get_user_stats(PDO $pdo, string $email, int $pathId = 0): array
         if ($row) {
             $stats['totalProgress']     = (float) $row['total_progress'];
             $stats['lastActivity']      = $row['last_activity']
-                                            ? date('Y-m-d', strtotime($row['last_activity']))
-                                            : $stats['lastActivity'];
+                ? date('Y-m-d', strtotime($row['last_activity']))
+                : $stats['lastActivity'];
             $stats['coursesCompleted']  = (int) $row['courses_completed'];
             $stats['coursesInProgress'] = (int) $row['courses_in_progress'];
         }
@@ -189,9 +173,9 @@ function api_get_user_stats(PDO $pdo, string $email, int $pathId = 0): array
     return [
         'email'        => $user['email'],
         'name'         => $user['name'],
-        'enrolledPaths'=> $enrolledPaths,
+        'enrolledPaths'=> $pathIds,
         'stats'        => $stats,
-        // De momento vacío: el front rellena cursos con MOCK_PATHS
-        'path_courses' => [],
+        // NO incluimos currentPathCourses cuando no tenemos detalle de cursos,
+        // así el front hace fallback a MOCK_PATHS.
     ];
 }

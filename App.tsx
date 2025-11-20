@@ -1,12 +1,13 @@
-
 import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import AdminDashboard from './components/AdminDashboard';
 import UserDashboard from './components/UserDashboard';
 import { MOCK_USERS } from './mockData';
 import { User } from './types';
 
+// Fix: Replaced state class property with a constructor for proper initialization of the ErrorBoundary component.
+// This resolves a TypeScript error where `this.props` was not being recognized.
 class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
-  constructor(props: {children: ReactNode}) {
+  constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
   }

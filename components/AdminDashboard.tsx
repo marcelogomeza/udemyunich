@@ -33,7 +33,7 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
   }, [selectedPathId]);
 
   const handleCopyUrl = async (email: string) => {
-    const baseUrl = window.location.origin + "/unich/";
+    const baseUrl = window.location.origin + "/";
     const url = `${baseUrl}?view=user&email=${email}`;
     
     try {

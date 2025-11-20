@@ -1,9 +1,10 @@
+// src/types.ts
 
 export interface Course {
   id: number;
   title: string;
   isCompleted: boolean;
-  progress: number;
+  progress: number;   // 0–100
   category: string;
 }
 
@@ -17,7 +18,7 @@ export interface LearningPath {
 
 export interface UserStats {
   totalProgress: number;
-  lastActivity: string;
+  lastActivity: string;        // "YYYY-MM-DD" o "-"
   coursesCompleted: number;
   coursesInProgress: number;
 }
@@ -25,9 +26,9 @@ export interface UserStats {
 export interface User {
   email: string;
   name: string;
-  avatar?: string;
   stats: UserStats;
-  enrolledPaths: number[]; // IDs of paths
+  enrolledPaths: number[];
+  currentPathCourses?: Course[]; // se usa en UserDashboard cuando viene del API
 }
 
 export interface LeaderboardEntry {

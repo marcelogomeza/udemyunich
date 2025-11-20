@@ -1,6 +1,5 @@
 <?php
 // backend/sync.php
-
 declare(strict_types=1);
 
 require __DIR__ . '/config.php';
@@ -9,6 +8,7 @@ $pdo = get_pdo();
 
 try {
     $summary = sync_user_paths($pdo);
+
     header('Content-Type: text/plain; charset=utf-8');
     echo "Sincronización completada.\n";
     echo "Paths actualizados: {$summary['paths']}\n";
@@ -21,27 +21,24 @@ try {
 }
 
 /**
- * Sincroniza datos de la API de Udemy en tablas:
+ * Sincroniza datos de Udemy Business en:
  *  - paths
  *  - users
  *  - path_users
  *
- * NOTA: usamos sólo user-path-activity (nivel agregado por path).
- * Para detalle por curso se puede extender más adelante.
+ * Usa el endpoint /analytics/user-path-activity/
  */
 function sync_user_paths(PDO $pdo): array
 {
-    $pathsUpdated      = 0;
-    $usersUpdated      = 0;
-    $pathUsersUpdated  = 0;
+    $pathsUpdated     = 0;
+    $usersUpdated     = 0;
+    $pathUsersUpdated = 0;
 
-    // Endpoint basado en el que ya has usado en Node:
-    // /api-2.0/organizations/{ORG_ID}/analytics/user-path-activity/
     $endpoint   = "/api-2.0/organizations/" . UDEMY_ORG_ID . "/analytics/user-path-activity/";
     $params     = ['page_size' => 100];
     $pageNumber = 1;
 
-    // Preparar statements (reutilizamos para rendimiento)
+    // Preparar statements
     $stmtUser = $pdo->prepare("
         INSERT INTO users (email, name, last_activity)
         VALUES (:email, :name, :last_activity)
@@ -79,46 +76,37 @@ function sync_user_paths(PDO $pdo): array
         }
 
         foreach ($data['results'] as $row) {
-            /**
-             * OJO:
-             * La estructura exacta del JSON de Udemy puede variar.
-             * Aquí hago un mapeo "defensivo" usando varios nombres
-             * posibles de campos. Si algo no macha, sólo hay que
-             * ajustar estos índices.
-             */
+            // Mapear campos posibles (la estructura puede variar un poco entre cuentas)
+            $pathId          = $row['path_id']              ?? $row['path']['id']       ?? null;
+            $pathTitle       = $row['path_title']           ?? $row['path']['title']    ?? ($row['path_name'] ?? null);
+            $pathTotalSteps  = $row['path_total_steps']     ?? $row['path_items']       ?? null;
 
-            // Datos de path
-            $pathId = $row['path_id']              ?? $row['path']['id']       ?? null;
-            $pathTitle = $row['path_title']        ?? $row['path']['title']    ?? ($row['path_name'] ?? null);
-            $pathTotalCourses = $row['path_items'] ?? $row['path']['items']    ?? null;
+            $email           = $row['user_email']           ?? $row['email']            ?? ($row['user']['email'] ?? null);
+            $userFirstName   = $row['user_first_name']      ?? $row['first_name']       ?? null;
+            $userLastName    = $row['user_last_name']       ?? $row['last_name']        ?? null;
+            $userName        = trim(($userFirstName ?? '') . ' ' . ($userLastName ?? '')) ?: ($row['user_name'] ?? $row['name'] ?? $email ?? 'Usuario');
 
-            // Datos de usuario
-            $email = $row['user_email']            ?? $row['user']['email']    ?? $row['email'] ?? null;
-            $name  = $row['user_name']             ?? $row['user']['name']     ?? $row['user']['display_name'] ?? $row['name'] ?? 'Usuario';
-
-            // Estadísticas
-            $ratio = $row['ratio']                 ?? $row['progress']         ?? 0;
+            // Ratio 0–1 o 0–100
+            $ratio           = $row['ratio']                ?? $row['progress']         ?? 0;
             if ($ratio <= 1) {
-                // Udemy suele devolver ratio 0–1, lo pasamos a porcentaje
                 $ratio = $ratio * 100;
             }
 
-            $completedItems  = $row['completed_items']   ?? $row['items_completed']   ?? 0;
-            $inProgressItems = $row['in_progress_items'] ?? $row['items_in_progress'] ?? 0;
+            $completedItems  = $row['completed_items']      ?? $row['items_completed']   ?? ($row['completed_steps'] ?? 0);
+            $inProgressItems = $row['in_progress_items']    ?? $row['items_in_progress'] ?? ($row['started_steps'] ?? 0);
 
-            $lastActivity = $row['last_activity']        ?? $row['last_activity_at']  ?? null;
+            $lastActivity    = $row['last_activity']        ?? $row['last_activity_at'] ?? ($row['path_last_activity'] ?? null);
 
             if (!$pathId || !$email) {
-                // Si faltan campos clave, saltamos
                 continue;
             }
 
-            // Normalizar fecha a formato DATETIME
             if ($lastActivity) {
-                // Si viene como ISO 8601 lo convertimos
                 $ts = strtotime($lastActivity);
                 if ($ts !== false) {
                     $lastActivity = date('Y-m-d H:i:s', $ts);
+                } else {
+                    $lastActivity = null;
                 }
             }
 
@@ -126,14 +114,14 @@ function sync_user_paths(PDO $pdo): array
             $stmtPath->execute([
                 ':id'            => $pathId,
                 ':title'         => $pathTitle ?? ('Path #' . $pathId),
-                ':total_courses' => $pathTotalCourses,
+                ':total_courses' => $pathTotalSteps,
             ]);
             $pathsUpdated++;
 
             // Upsert USER
             $stmtUser->execute([
                 ':email'         => $email,
-                ':name'          => $name,
+                ':name'          => $userName,
                 ':last_activity' => $lastActivity,
             ]);
             $usersUpdated++;
@@ -150,7 +138,7 @@ function sync_user_paths(PDO $pdo): array
             $pathUsersUpdated++;
         }
 
-        // Paginación: API suele devolver campo "next" con la URL de la siguiente página
+        // Paginación
         if (!empty($data['next'])) {
             $nextUrl = $data['next'];
             $parsed  = parse_url($nextUrl);
@@ -161,10 +149,10 @@ function sync_user_paths(PDO $pdo): array
             }
             $pageNumber++;
         } else {
-            // Sin más páginas
             break;
         }
-    } while ($pageNumber < 50); // hard-limit anti-bucle
+
+    } while ($pageNumber < 50);
 
     return [
         'paths'      => $pathsUpdated,

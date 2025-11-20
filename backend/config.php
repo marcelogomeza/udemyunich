@@ -2,11 +2,10 @@
 // backend/config.php
 declare(strict_types=1);
 
-// Ajusta si quieres otra zona horaria
 date_default_timezone_set('America/Mexico_City');
 
 /**
- * Helper sencillo para leer env vars
+ * Helper sencillo para leer variables de entorno
  */
 function envv(string $key, $default = null) {
     $v = getenv($key);
@@ -14,54 +13,41 @@ function envv(string $key, $default = null) {
 }
 
 /* ============================================================
- *  CONFIGURACIÓN UDEMY BUSINESS (por env vars)
+ *  UDEMY BUSINESS
  * ============================================================ */
 
-define('UDEMY_SUBDOMAIN', 'unich');   // nombre de cuenta/subdominio
-define('UDEMY_ORG_ID', 403457);       // ID de cuenta/organización
+define('UDEMY_SUBDOMAIN', 'unich');   // portal/subdominio
+define('UDEMY_ORG_ID', 403457);       // Account / Organization ID
 
-// Vienen de Railway -> Variables compartidas
+// Variables compartidas en Railway
 define('UDEMY_CLIENT_ID',     envv('UDEMY_CLIENT_ID_CONS', ''));
 define('UDEMY_CLIENT_SECRET', envv('UDEMY_CLIENT_SECRET_CONST', ''));
 
 /* ============================================================
- *  CONFIGURACIÓN BASE DE DATOS (Railway MySQL)
- * ============================================================ *
- * Variables disponibles:
- *  - MYSQL_DATABASE
- *  - MYSQL_ROOT_PASSWORD
- *  - MYSQL_URL  (mysql://user:pass@host:port/dbname)
- *  - MYSQLHOST
- */
+ *  BASE DE DATOS (Railway MySQL)
+ *  Vars: MYSQL_DATABASE, MYSQL_ROOT_PASSWORD, MYSQL_URL, MYSQLHOST
+ * ============================================================ */
 
-$mysqlDatabase      = envv('MYSQL_DATABASE', 'ascensus_db');
-$mysqlRootPassword  = envv('MYSQL_ROOT_PASSWORD', '');
-$mysqlHost          = envv('MYSQLHOST', '127.0.0.1');
-$mysqlUrl           = envv('MYSQL_URL', null);
+$mysqlDatabase     = envv('MYSQL_DATABASE', 'ascensus_db');
+$mysqlRootPassword = envv('MYSQL_ROOT_PASSWORD', '');
+$mysqlHost         = envv('MYSQLHOST', '127.0.0.1');
+$mysqlUrl          = envv('MYSQL_URL', null);
 
-// Valores por defecto (por si falta MYSQL_URL)
+// Valores por defecto
 $dbHost = $mysqlHost;
 $dbPort = 3306;
 $dbUser = 'root';
 $dbPass = $mysqlRootPassword;
 $dbName = $mysqlDatabase;
 
-// Si existe MYSQL_URL, tiene prioridad (user, pass, host, port, db)
+// Si existe MYSQL_URL, tiene prioridad
 if ($mysqlUrl) {
     $parts = parse_url($mysqlUrl);
     if ($parts !== false) {
-        if (!empty($parts['host'])) {
-            $dbHost = $parts['host'];
-        }
-        if (!empty($parts['port'])) {
-            $dbPort = (int) $parts['port'];
-        }
-        if (!empty($parts['user'])) {
-            $dbUser = $parts['user'];
-        }
-        if (!empty($parts['pass'])) {
-            $dbPass = $parts['pass'];
-        }
+        if (!empty($parts['host'])) $dbHost = $parts['host'];
+        if (!empty($parts['port'])) $dbPort = (int) $parts['port'];
+        if (!empty($parts['user'])) $dbUser = $parts['user'];
+        if (!empty($parts['pass'])) $dbPass = $parts['pass'];
         if (!empty($parts['path']) && $parts['path'] !== '/') {
             $dbName = ltrim($parts['path'], '/');
         }
@@ -80,10 +66,7 @@ define('DB_CHARSET', 'utf8mb4');
  */
 function get_pdo(): PDO {
     static $pdo = null;
-
-    if ($pdo instanceof PDO) {
-        return $pdo;
-    }
+    if ($pdo instanceof PDO) return $pdo;
 
     $port = DB_PORT ? ';port=' . DB_PORT : '';
     $dsn  = 'mysql:host=' . DB_HOST . $port . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
@@ -97,7 +80,7 @@ function get_pdo(): PDO {
 }
 
 /**
- * Llamada GET a la API de Udemy Business (Reporting / Analytics)
+ * Llamada GET a la API de Udemy Business (Reporting)
  */
 function udemy_get(string $endpoint, array $params = []): array
 {
@@ -152,7 +135,6 @@ function json_response($data, int $status = 200): void
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
-    // Front y backend estarán en el mismo dominio, pero lo dejamos abierto
     header('Access-Control-Allow-Origin: *');
 
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
