@@ -180,17 +180,46 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
 
         {/* Sidebar Help */}
         <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-fit">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Estado del Sistema</h3>
-            <div className="bg-green-50 p-4 rounded-lg border border-green-100 mb-4">
-                <h4 className="text-green-800 font-semibold text-sm mb-1">Sincronización</h4>
-                <p className="text-xs text-green-700">
-                    La conexión con Udemy Business está configurada. Ejecute <code>sync.php</code> para actualizar datos.
-                </p>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Estado del Sistema</h3>
+
+          <div className="bg-green-50 p-4 rounded-lg border border-green-100 mb-4">
+            <h4 className="text-green-800 font-semibold text-sm mb-1">Sincronización</h4>
+
+            <p className="text-xs text-green-700">
+              La conexión con Udemy Business está configurada. Ejecute <code>sync.php</code> para actualizar datos.
+            </p>
+
+            {/* Botones discretos y temporales para tareas de diagnóstico */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleRunTool('/backend/sync.php')}
+                className="px-2 py-1 rounded-full border border-green-300 text-[11px] text-green-800 hover:bg-green-100 transition"
+              >
+                Ejecutar sync.php
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleRunTool('/backend/test-deb.php')}
+                className="px-2 py-1 rounded-full border border-gray-300 text-[11px] text-gray-700 hover:bg-gray-100 transition"
+              >
+                Probar DB
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleRunTool('/backend/api.php?action=get_paths')}
+                className="px-2 py-1 rounded-full border border-blue-300 text-[11px] text-blue-700 hover:bg-blue-100 transition"
+              >
+                Ver get_paths
+              </button>
             </div>
-            <p className="text-xs text-gray-400">Cuenta: 403457 (unich)</p>
+          </div>
+
+          <p className="text-xs text-gray-400">Cuenta: 403457 (unich)</p>
         </div>
-      </main>
-    </div>
+
   );
 };
 
