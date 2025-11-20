@@ -219,7 +219,6 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
 
           <p className="text-xs text-gray-400">Cuenta: 403457 (unich)</p>
         </div>
-
   );
 };
 
