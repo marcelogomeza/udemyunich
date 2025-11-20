@@ -14,6 +14,13 @@ const AdminDashboard: React.FC<Props> = ({ onSelectUser }) => {
   const [loading, setLoading] = useState(false);
   const [paths, setPaths] = useState(MOCK_PATHS);
 
+    // Botones de utilería para disparar scripts del backend (uso temporal)
+  const handleRunTool = (relativePath: string) => {
+    // Como el sitio está en la raíz, construimos la URL absoluta
+    const url = `${window.location.origin}${relativePath}`;
+    window.open(url, '_blank'); // abre el resultado en otra pestaña
+  };
+
   useEffect(() => {
     const loadPaths = async () => {
         const data = await api.getPaths();
