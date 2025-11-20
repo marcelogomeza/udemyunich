@@ -1,43 +1,79 @@
 <?php
 // backend/config.php
-
 declare(strict_types=1);
 
-// Ajusta tu zona horaria
+// Ajusta si quieres otra zona horaria
 date_default_timezone_set('America/Mexico_City');
 
 /**
- * CONFIGURACIÓN BASE DE DATOS
- * ---------------------------
- * Crea antes la BD con database.sql
+ * Helper sencillo para leer env vars
+ */
+function envv(string $key, $default = null) {
+    $v = getenv($key);
+    return $v === false ? $default : $v;
+}
+
+/* ============================================================
+ *  CONFIGURACIÓN UDEMY BUSINESS (por env vars)
+ * ============================================================ */
+
+define('UDEMY_SUBDOMAIN', 'unich');   // nombre de cuenta/subdominio
+define('UDEMY_ORG_ID', 403457);       // ID de cuenta/organización
+
+// Vienen de Railway -> Variables compartidas
+define('UDEMY_CLIENT_ID',     envv('UDEMY_CLIENT_ID_CONS', ''));
+define('UDEMY_CLIENT_SECRET', envv('UDEMY_CLIENT_SECRET_CONST', ''));
+
+/* ============================================================
+ *  CONFIGURACIÓN BASE DE DATOS (Railway MySQL)
+ * ============================================================ *
+ * Variables disponibles:
+ *  - MYSQL_DATABASE
+ *  - MYSQL_ROOT_PASSWORD
+ *  - MYSQL_URL  (mysql://user:pass@host:port/dbname)
+ *  - MYSQLHOST
  */
 
-define('DB_HOST', ${{MySQL.MYSQLHOST}});
-define('DB_NAME', ${{MySQL.MYSQL_DATABASE}});
-define('DB_USER', 'root');
-define('DB_PASS', ${{MySQL.MYSQL_ROOT_PASSWORD}});
-define('DB_CHARSET', 'utf8mb4')
+$mysqlDatabase      = envv('MYSQL_DATABASE', 'ascensus_db');
+$mysqlRootPassword  = envv('MYSQL_ROOT_PASSWORD', '');
+$mysqlHost          = envv('MYSQLHOST', '127.0.0.1');
+$mysqlUrl           = envv('MYSQL_URL', null);
 
-/**
-define('DB_HOST', 'metro.proxy.rlwy.net:28567');
-define('DB_NAME', 'ascensus_db');
-define('DB_USER', 'root');
-define('DB_PASS', 'rpdBMwwHcUxllKzzNZNOfOMYYvaFoyQI');
+// Valores por defecto (por si falta MYSQL_URL)
+$dbHost = $mysqlHost;
+$dbPort = 3306;
+$dbUser = 'root';
+$dbPass = $mysqlRootPassword;
+$dbName = $mysqlDatabase;
+
+// Si existe MYSQL_URL, tiene prioridad (user, pass, host, port, db)
+if ($mysqlUrl) {
+    $parts = parse_url($mysqlUrl);
+    if ($parts !== false) {
+        if (!empty($parts['host'])) {
+            $dbHost = $parts['host'];
+        }
+        if (!empty($parts['port'])) {
+            $dbPort = (int) $parts['port'];
+        }
+        if (!empty($parts['user'])) {
+            $dbUser = $parts['user'];
+        }
+        if (!empty($parts['pass'])) {
+            $dbPass = $parts['pass'];
+        }
+        if (!empty($parts['path']) && $parts['path'] !== '/') {
+            $dbName = ltrim($parts['path'], '/');
+        }
+    }
+}
+
+define('DB_HOST', $dbHost);
+define('DB_PORT', $dbPort);
+define('DB_NAME', $dbName);
+define('DB_USER', $dbUser);
+define('DB_PASS', $dbPass);
 define('DB_CHARSET', 'utf8mb4');
- */
-
-/**
- * CONFIGURACIÓN UDEMY BUSINESS
- * ----------------------------
- * Sustituye los valores por los de tu cuenta.
- * Importante: no subas este archivo a GitHub.
- */
-define('UDEMY_SUBDOMAIN', 'unich');  // nombre de cuenta/subdominio
-define('UDEMY_ORG_ID', 403457);      // ID de cuenta/organización
-
-// Pega aquí TUS credenciales reales
-define('UDEMY_CLIENT_ID',    'FW9dc6eSqr5ilPhcnyFTiB6sIcgjF479ZPdI6t2r');
-define('UDEMY_CLIENT_SECRET','D5yMYzQsDwmIocv2F0eyRgPIiVOrfsLF74e9AExW573VY8zYnI0GSMNZL5ntYNsduu7pCVYA5DDch80HjXecreynvZWgW3oIfO4bcNBO3rfyzm5CE0O8sK9EKjGHFNZW');
 
 /**
  * Conexión PDO compartida
@@ -49,7 +85,9 @@ function get_pdo(): PDO {
         return $pdo;
     }
 
-    $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
+    $port = DB_PORT ? ';port=' . DB_PORT : '';
+    $dsn  = 'mysql:host=' . DB_HOST . $port . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
+
     $pdo = new PDO($dsn, DB_USER, DB_PASS, [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -60,7 +98,6 @@ function get_pdo(): PDO {
 
 /**
  * Llamada GET a la API de Udemy Business (Reporting / Analytics)
- * Usa autenticación Basic con client_id:client_secret
  */
 function udemy_get(string $endpoint, array $params = []): array
 {
@@ -115,15 +152,9 @@ function json_response($data, int $status = 200): void
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
-    // Si lo sirves desde el mismo dominio no es estrictamente necesario:
+    // Front y backend estarán en el mismo dominio, pero lo dejamos abierto
     header('Access-Control-Allow-Origin: *');
 
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
-
-
-
-
-
-
