@@ -11,11 +11,20 @@ date_default_timezone_set('America/Mexico_City');
  * ---------------------------
  * Crea antes la BD con database.sql
  */
+
+define('DB_HOST', ${{MySQL.MYSQLHOST}});
+define('DB_NAME', ${{MySQL.MYSQL_DATABASE}});
+define('DB_USER', 'root');
+define('DB_PASS', ${{MySQL.MYSQL_ROOT_PASSWORD}});
+define('DB_CHARSET', 'utf8mb4')
+
+/**
 define('DB_HOST', 'metro.proxy.rlwy.net:28567');
 define('DB_NAME', 'ascensus_db');
 define('DB_USER', 'root');
 define('DB_PASS', 'rpdBMwwHcUxllKzzNZNOfOMYYvaFoyQI');
 define('DB_CHARSET', 'utf8mb4');
+ */
 
 /**
  * CONFIGURACIÓN UDEMY BUSINESS
@@ -112,6 +121,7 @@ function json_response($data, int $status = 200): void
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
+
 
 
 
