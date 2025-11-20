@@ -11,7 +11,7 @@ date_default_timezone_set('America/Mexico_City');
  * ---------------------------
  * Crea antes la BD con database.sql
  */
-define('DB_HOST', 'mysql.railway.internal:3306');
+define('DB_HOST', 'metro.proxy.rlwy.net:28567');
 define('DB_NAME', 'ascensus_db');
 define('DB_USER', 'root');
 define('DB_PASS', 'rpdBMwwHcUxllKzzNZNOfOMYYvaFoyQI');
@@ -112,6 +112,7 @@ function json_response($data, int $status = 200): void
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
+
 
 
 
