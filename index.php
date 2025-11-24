@@ -1,3 +1,4 @@
+<?php
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -42,3 +43,4 @@
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
+?>
