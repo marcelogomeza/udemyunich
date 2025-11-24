@@ -1,8 +1,9 @@
 {
     "name": "usuario/mi-proyecto-php",
     "require": {
-        "php": ">=7.4",
+        "php": ">=8.4",
         // Línea clave para MySQL/MariaDB
         "ext-pdo_mysql": "*"
     }
+
 }
